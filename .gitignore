@@ -1,0 +1,19 @@
+# Ignorer node_modules (Node.js)
+node_modules/
+
+# Ignorer fichiers Python compilés
+__pycache__/
+
+# Ignorer fichiers d'environnement
+.env
+
+# Ignorer logs
+*.log
+
+# Ignorer fichiers temporaires
+*.tmp
+*.swp
+
+# Ignorer fichiers de build
+dist/
+build/
