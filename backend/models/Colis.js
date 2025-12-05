@@ -24,7 +24,11 @@ const schemaColis = new mongoose.Schema({
   },
 
   // Association au client connecté
-  clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Utilisateur', required: true }
+  clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Utilisateur', required: true },
+
+  // Association au livreur (null si pas encore accepté)
+  livreurId: { type: mongoose.Schema.Types.ObjectId, ref: 'Utilisateur', default: null }
+
 }, { timestamps: true });
 
 module.exports = mongoose.model('Colis', schemaColis);

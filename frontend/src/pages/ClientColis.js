@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 export default function ClientColis() {
   const { utilisateur } = useContext(AuthContext);
   const [colis, setColis] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [selectedColis, setSelectedColis] = useState(null);
@@ -14,19 +15,40 @@ export default function ClientColis() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!utilisateur?.id) return;
+
+    const token = localStorage.getItem("token");
+
     const fetchColis = async () => {
       try {
-        const token = localStorage.getItem("token");
         const res = await axios.get(
           `http://localhost:5000/api/colis/client/${utilisateur.id}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setColis(res.data);
       } catch (err) {
-        setMessage(err.response?.data?.message || "Erreur lors du chargement");
+        setMessage(err.response?.data?.message || "Erreur lors du chargement des colis");
       }
     };
-    if (utilisateur) fetchColis();
+
+    const fetchNotifications = async () => {
+      try {
+        const res = await axios.get(
+          `http://localhost:8001/api/notifications/${utilisateur.id}`
+        );
+        console.log("Notifications reçues:", res.data);
+        setNotifications(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        console.error("Erreur notifications:", err.message);
+      }
+    };
+
+    fetchColis();
+    fetchNotifications();
+
+    // 🔄 Mettre à jour toutes les 5s
+    const interval = setInterval(fetchNotifications, 5000);
+    return () => clearInterval(interval);
   }, [utilisateur]);
 
   const handleView = (c) => {
@@ -59,15 +81,33 @@ export default function ClientColis() {
       .includes(search.toLowerCase())
   );
 
+  // 🔹 Notifications
+  const markAsRead = async (id) => {
+    try {
+      await axios.patch(`http://localhost:8001/api/notifications/${id}/lu`);
+      setNotifications(
+        notifications.map((n) => (n._id === id ? { ...n, lu: true } : n))
+      );
+    } catch (err) {
+      console.error("Erreur lors du marquage comme lu:", err.message);
+    }
+  };
+
+  const deleteNotification = async (id) => {
+    try {
+      await axios.delete(`http://localhost:8001/api/notifications/${id}`);
+      setNotifications(notifications.filter((n) => n._id !== id));
+    } catch (err) {
+      console.error("Erreur suppression notification:", err.message);
+    }
+  };
+
   return (
-    <div className="page-container">
-      {/* =========================
-            MES COLIS SECTION
-      ========================= */}
-      <section className="mescolis-section">
+    <div className="page-container" style={{ display: "flex", gap: "20px" }}>
+      {/* ========================= MES COLIS ========================= */}
+      <section className="mescolis-section" style={{ flex: 2 }}>
         <div className="mescolis-container animate-fadeIn">
           <h2>📦 Mes Colis</h2>
-
           <div className="mescolis-search">
             <input
               type="text"
@@ -76,9 +116,7 @@ export default function ClientColis() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-
           {message && <p className="message">{message}</p>}
-
           {filtered.length === 0 ? (
             <p className="no-results">Aucun colis trouvé.</p>
           ) : (
@@ -102,22 +140,13 @@ export default function ClientColis() {
                     <td>{c.statut}</td>
                     <td>{new Date(c.createdAt).toLocaleDateString()}</td>
                     <td>
-                      <button
-                        className="btn btn-view"
-                        onClick={() => handleView(c)}
-                      >
+                      <button className="btn btn-view" onClick={() => handleView(c)}>
                         <FaEye /> Voir
                       </button>
-                      <button
-                        className="btn btn-edit"
-                        onClick={() => handleEdit(c)}
-                      >
+                      <button className="btn btn-edit" onClick={() => handleEdit(c)}>
                         <FaEdit /> Modifier
                       </button>
-                      <button
-                        className="btn btn-delete"
-                        onClick={() => handleDelete(c)}
-                      >
+                      <button className="btn btn-delete" onClick={() => handleDelete(c)}>
                         <FaTrash /> Supprimer
                       </button>
                     </td>
@@ -129,118 +158,48 @@ export default function ClientColis() {
         </div>
       </section>
 
-      {/* =========================
-            CONTACT SECTION (inchangé)
-      ========================= */}
-      <section id="contact" className="contact-section">
-        <div className="contact-card info-card animate-fadeIn">
-          <h2>Contact Information</h2>
-          <div className="contact-item">
-            <i className="icon">📍</i>
-            <div>
-              <strong>Address</strong>
-              <p>
-                100 Tech Plaza, Innovation District
-                <br />
-                San Francisco, CA 94103
-              </p>
-            </div>
-          </div>
-          <div className="contact-item">
-            <i className="icon">📧</i>
-            <div>
-              <strong>Email</strong>
-              <p>
-                <a href="mailto:info@futurenav.com">info@futurenav.com</a>
-              </p>
-            </div>
-          </div>
-          <div className="contact-item">
-            <i className="icon">📞</i>
-            <div>
-              <strong>Phone</strong>
-              <p>+1 (415) 555-2671</p>
-            </div>
-          </div>
-
-          <div className="socials">
-            <h4>Follow Us</h4>
-            <div className="social-icons">
-              <a href="#">
-                <i className="fab fa-twitter"></i>
-              </a>
-              <a href="#">
-                <i className="fab fa-instagram"></i>
-              </a>
-              <a href="#">
-                <i className="fab fa-linkedin"></i>
-              </a>
-            </div>
-          </div>
-        </div>
-
-        <div className="contact-card form-card animate-fadeIn">
-          <h2>Send us a message</h2>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              alert("Message envoyé !");
-            }}
-          >
-            <div className="form-row">
-              <div className="form-group">
-                <label>Name</label>
-                <input type="text" placeholder="John Doe" required />
-              </div>
-              <div className="form-group">
-                <label>Email</label>
-                <input type="email" placeholder="john@example.com" required />
-              </div>
-            </div>
-            <div className="form-group">
-              <label>Subject</label>
-              <input type="text" placeholder="How can we help you?" required />
-            </div>
-            <div className="form-group">
-              <label>Message</label>
-              <textarea rows="5" placeholder="Write your message here..." required></textarea>
-            </div>
-            <button type="submit" className="contact-submit">
-              Send Message
-            </button>
-          </form>
+      {/* ========================= NOTIFICATIONS ========================= */}
+      <section className="notifications-section" style={{ flex: 1 }}>
+        <div className="notifications-container animate-fadeIn">
+          <h2>🔔 Mes Notifications</h2>
+          {notifications.length === 0 ? (
+            <p>Aucune notification pour le moment.</p>
+          ) : (
+            <ul className="notifications-list">
+              {notifications.map((n) => (
+                <li
+                  key={n._id}
+                  className={n.lu ? "notification lu" : "notification"}
+                  style={{ background: n.lu ? "#eee" : "#f9f9f9", margin: "5px", padding: "10px", borderRadius: "5px" }}
+                >
+                  <strong>{n.type}</strong>: {n.message}
+                  <div style={{ marginTop: "5px" }}>
+                    {!n.lu && (
+                      <button onClick={() => markAsRead(n._id)}>Marquer comme lue</button>
+                    )}
+                    <button onClick={() => deleteNotification(n._id)} style={{ marginLeft: "5px", color: "red" }}>Supprimer</button>
+                  </div>
+                  <small>{new Date(n.createdAt).toLocaleString()}</small>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 
-      {/* =========================
-            MODAL DÉTAILS COLIS
-      ========================= */}
+      {/* ========================= MODAL DÉTAILS COLIS ========================= */}
       {showModal && selectedColis && (
         <div className="overlay active">
           <div className="colis-container" style={{ maxWidth: 500 }}>
             <h3>Détails du colis</h3>
-            <p>
-              <strong>Code :</strong> {selectedColis.codeSuivi}
-            </p>
-            <p>
-              <strong>Destinataire :</strong> {selectedColis.nomDestinataire}
-            </p>
-            <p>
-              <strong>Adresse :</strong> {selectedColis.adresseDestinataire}
-            </p>
-            <p>
-              <strong>Téléphone :</strong> {selectedColis.telephoneDestinataire}
-            </p>
-            <p>
-              <strong>Statut :</strong> {selectedColis.statut}
-            </p>
-            <p>
-              <strong>Date :</strong>{" "}
-              {new Date(selectedColis.createdAt).toLocaleDateString()}
-            </p>
-            <button className="btn btn-primary" onClick={() => setShowModal(false)}>
-              Fermer
-            </button>
+            <p><strong>Code :</strong> {selectedColis.codeSuivi}</p>
+            <p><strong>Destinataire :</strong> {selectedColis.nomDestinataire}</p>
+            <p><strong>Adresse :</strong> {selectedColis.adresseDestinataire}</p>
+            <p><strong>Téléphone :</strong> {selectedColis.telephoneDestinataire}</p>
+            <p><strong>Statut :</strong> {selectedColis.statut}</p>
+            <p><strong>Date :</strong> {new Date(selectedColis.createdAt).toLocaleDateString()}</p>
+
+            <button className="btn btn-primary" onClick={() => setShowModal(false)}>Fermer</button>
           </div>
         </div>
       )}

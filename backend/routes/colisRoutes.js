@@ -31,3 +31,9 @@ router.get('/qrcode/:codeSuivi', auth, controleur.qrCodeColis);
 router.get('/client/:id', auth, controleur.getColisClient);
 
 module.exports = router;
+
+// 🔹 Liste des colis disponibles pour les livreurs
+router.get('/livreur', auth, controleur.getColisPourLivreur);
+
+// 🔹 Accepter ou refuser un colis (livreur)
+router.patch('/accepter/:codeSuivi', auth, controleur.accepterRefuserColis);

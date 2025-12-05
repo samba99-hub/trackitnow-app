@@ -2,6 +2,7 @@ const Utilisateur = require('../models/Utilisateur');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
+const { notifyUser, notifySystem } = require('../services/notificationService'); // 🔔 Import notifications
 
 // ✅ Inscription
 exports.inscription = async (req, res) => {
@@ -38,6 +39,9 @@ exports.inscription = async (req, res) => {
 
     await nouvelUtilisateur.save();
 
+    // 🔔 Notification utilisateur
+    await notifyUser(nouvelUtilisateur._id.toString(), "Bienvenue sur TrackItNow ! Votre compte a été créé.", null);
+
     res.status(201).json({ message: 'Inscription réussie' });
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', erreur: err.message });
@@ -73,6 +77,9 @@ exports.connexion = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: '1d' }
     );
+
+    // 🔔 Notification utilisateur
+    await notifyUser(utilisateur._id.toString(), "Connexion réussie à TrackItNow", null);
 
     res.json({
       token,
