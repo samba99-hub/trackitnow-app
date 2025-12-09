@@ -24,13 +24,12 @@ const Navbar = () => {
       {/* Logo */}
       <div className="logo">
         <Link to="/">
-          {/* <img src={logo} alt="TrackItNow" /> */}
           <span>TrackItNow</span>
         </Link>
       </div>
 
       {/* Barre de recherche (désactivée pour l'instant) */}
-      {/*
+      {/* 
       {utilisateur?.role === 'client' && (
         <div className="navbar-center">
           <form className="navbar-search-form" onSubmit={handleSearch}>
@@ -68,6 +67,9 @@ const Navbar = () => {
             <li><a href="#contact" className="nav-link">Contact</a></li>
             <li><Link to="/client/mes-colis" className="nav-link">Mes Colis</Link></li>
             <li><Link to="/client/creer-colis" className="nav-link">Créer un colis</Link></li>
+
+            {/* ✅ Lien ajouté SANS rien modifier d’autre */}
+            <li><Link to="/client/notifications" className="nav-link">Notifications</Link></li>
           </>
         )}
 

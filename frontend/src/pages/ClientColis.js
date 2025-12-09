@@ -1,19 +1,34 @@
-import { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext } from "react";
 import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
-import { FaEye, FaEdit, FaTrash } from "react-icons/fa";
+import { FaEye, FaEdit, FaTrash, FaBell } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+// Fix icône Leaflet
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: require("leaflet/dist/images/marker-icon-2x.png"),
+  iconUrl: require("leaflet/dist/images/marker-icon.png"),
+  shadowUrl: require("leaflet/dist/images/marker-shadow.png"),
+});
 
 export default function ClientColis() {
   const { utilisateur } = useContext(AuthContext);
   const [colis, setColis] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [notificationsServiceDisponible, setNotificationsServiceDisponible] = useState(true);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [selectedColis, setSelectedColis] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [livreurPos, setLivreurPos] = useState(null);
+
   const navigate = useNavigate();
 
+  // ========================= FETCH COLIS + NOTIFICATIONS =========================
   useEffect(() => {
     if (!utilisateur?.id) return;
 
@@ -34,23 +49,52 @@ export default function ClientColis() {
     const fetchNotifications = async () => {
       try {
         const res = await axios.get(
-          `http://localhost:8001/api/notifications/${utilisateur.id}`
+          `http://localhost:5000/api/notifications/${utilisateur.id}`
         );
-        console.log("Notifications reçues:", res.data);
         setNotifications(Array.isArray(res.data) ? res.data : []);
+        setNotificationsServiceDisponible(true);
       } catch (err) {
-        console.error("Erreur notifications:", err.message);
+        if (err.response?.status === 503) {
+          console.warn("Service notifications indisponible");
+          setNotificationsServiceDisponible(false);
+        } else {
+          console.error("Erreur notifications:", err.message);
+        }
       }
     };
 
     fetchColis();
     fetchNotifications();
-
-    // 🔄 Mettre à jour toutes les 5s
     const interval = setInterval(fetchNotifications, 5000);
     return () => clearInterval(interval);
   }, [utilisateur]);
 
+  // ========================= MARK AS READ =========================
+  const markAsRead = async (id) => {
+    try {
+      await axios.patch(`http://localhost:5000/api/notifications/${id}/lu`);
+      setNotifications(
+        notifications.map((n) => (n._id === id ? { ...n, lu: true } : n))
+      );
+    } catch (err) {
+      console.error(err.message);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await Promise.all(
+        notifications.map((n) =>
+          !n.lu ? axios.patch(`http://localhost:5000/api/notifications/${n._id}/lu`) : null
+        )
+      );
+      setNotifications(notifications.map((n) => ({ ...n, lu: true })));
+    } catch (err) {
+      console.error(err.message);
+    }
+  };
+
+  // ========================= GESTION COLIS =========================
   const handleView = (c) => {
     setSelectedColis(c);
     setShowModal(true);
@@ -81,27 +125,35 @@ export default function ClientColis() {
       .includes(search.toLowerCase())
   );
 
-  // 🔹 Notifications
-  const markAsRead = async (id) => {
-    try {
-      await axios.patch(`http://localhost:8001/api/notifications/${id}/lu`);
-      setNotifications(
-        notifications.map((n) => (n._id === id ? { ...n, lu: true } : n))
-      );
-    } catch (err) {
-      console.error("Erreur lors du marquage comme lu:", err.message);
-    }
-  };
+  const unreadCount = notifications.filter(n => !n.lu).length;
 
-  const deleteNotification = async (id) => {
-    try {
-      await axios.delete(`http://localhost:8001/api/notifications/${id}`);
-      setNotifications(notifications.filter((n) => n._id !== id));
-    } catch (err) {
-      console.error("Erreur suppression notification:", err.message);
-    }
-  };
+  // ========================= FETCH POSITION LIVREUR =========================
+  useEffect(() => {
+    if (!selectedColis?.livreurId) return;
 
+    let interval;
+
+    const fetchLivreurPos = async () => {
+      try {
+        const res = await axios.get(
+          `http://127.0.0.1:5001/locations/livreur/${selectedColis.livreurId}`
+        );
+        const data = res.data;
+        if (Array.isArray(data) && data.length > 0) {
+          setLivreurPos(data[data.length - 1]); // prendre la dernière position
+        }
+      } catch (err) {
+        console.error("Erreur récupération position livreur :", err.message);
+      }
+    };
+
+    fetchLivreurPos();
+    interval = setInterval(fetchLivreurPos, 5000);
+
+    return () => clearInterval(interval);
+  }, [selectedColis]);
+
+  // ========================= RENDER =========================
   return (
     <div className="page-container" style={{ display: "flex", gap: "20px" }}>
       {/* ========================= MES COLIS ========================= */}
@@ -158,36 +210,52 @@ export default function ClientColis() {
         </div>
       </section>
 
-      {/* ========================= NOTIFICATIONS ========================= */}
-      <section className="notifications-section" style={{ flex: 1 }}>
+      {/* ========================= MINI NOTIFICATIONS ========================= */}
+      <section className="notifications-widget" style={{ flex: 1 }}>
         <div className="notifications-container animate-fadeIn">
-          <h2>🔔 Mes Notifications</h2>
-          {notifications.length === 0 ? (
-            <p>Aucune notification pour le moment.</p>
+          <h2>
+            <FaBell /> Notifications{" "}
+            {notificationsServiceDisponible && unreadCount > 0 && (
+              <span style={{ color: "red" }}>({unreadCount})</span>
+            )}
+          </h2>
+
+          {!notificationsServiceDisponible ? (
+            <p style={{ color: "orange" }}>Service de notifications indisponible</p>
+          ) : notifications.length === 0 ? (
+            <p>Service de notifications indisponible</p>
           ) : (
-            <ul className="notifications-list">
-              {notifications.map((n) => (
-                <li
-                  key={n._id}
-                  className={n.lu ? "notification lu" : "notification"}
-                  style={{ background: n.lu ? "#eee" : "#f9f9f9", margin: "5px", padding: "10px", borderRadius: "5px" }}
-                >
-                  <strong>{n.type}</strong>: {n.message}
-                  <div style={{ marginTop: "5px" }}>
-                    {!n.lu && (
-                      <button onClick={() => markAsRead(n._id)}>Marquer comme lue</button>
-                    )}
-                    <button onClick={() => deleteNotification(n._id)} style={{ marginLeft: "5px", color: "red" }}>Supprimer</button>
-                  </div>
-                  <small>{new Date(n.createdAt).toLocaleString()}</small>
-                </li>
-              ))}
-            </ul>
+            <>
+              <button onClick={markAllAsRead} style={{ marginBottom: "10px" }}>
+                Tout marquer comme lu
+              </button>
+              <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+                <ul>
+                  {notifications.map((n) => (
+                    <li
+                      key={n._id}
+                      style={{
+                        background: n.lu ? "#eee" : "#f9f9f9",
+                        margin: "5px 0",
+                        padding: "10px",
+                        borderRadius: "5px",
+                      }}
+                    >
+                      <strong>{n.type}</strong>: {n.message} <br />
+                      <small>{new Date(n.createdAt).toLocaleString()}</small> <br />
+                      {!n.lu && (
+                        <button onClick={() => markAsRead(n._id)}>Marquer comme lu</button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </>
           )}
         </div>
       </section>
 
-      {/* ========================= MODAL DÉTAILS COLIS ========================= */}
+      {/* ========================= MODAL LIVREUR ========================= */}
       {showModal && selectedColis && (
         <div className="overlay active">
           <div className="colis-container" style={{ maxWidth: 500 }}>
@@ -198,6 +266,27 @@ export default function ClientColis() {
             <p><strong>Téléphone :</strong> {selectedColis.telephoneDestinataire}</p>
             <p><strong>Statut :</strong> {selectedColis.statut}</p>
             <p><strong>Date :</strong> {new Date(selectedColis.createdAt).toLocaleDateString()}</p>
+
+            <h4>Position du livreur</h4>
+            <div style={{ height: 300, marginTop: 10 }}>
+              {livreurPos && livreurPos.latitude && livreurPos.longitude ? (
+                <MapContainer
+                  center={[livreurPos.latitude, livreurPos.longitude]}
+                  zoom={13}
+                  style={{ height: "100%", width: "100%" }}
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  />
+                  <Marker position={[livreurPos.latitude, livreurPos.longitude]}>
+                    <Popup>Livreur</Popup>
+                  </Marker>
+                </MapContainer>
+              ) : (
+                <p>Chargement de la position du livreur...</p>
+              )}
+            </div>
 
             <button className="btn btn-primary" onClick={() => setShowModal(false)}>Fermer</button>
           </div>

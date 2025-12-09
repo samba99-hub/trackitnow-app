@@ -10,6 +10,9 @@ import AdminDashboard from './pages/AdminDashboard';
 import ClientColis from './pages/ClientColis';
 import CreerColis from './pages/CreerColis';
 import LivreurColis from './pages/LivreurColis';
+
+import NotificationsPage from './pages/Notifications';   // ✅ AJOUT ICI
+
 import './App.css';
 
 /* Routes protégées */
@@ -47,6 +50,17 @@ function AppRoutes() {
           </RoleRoute>
         }
       />
+
+      {/* ✅ ROUTE AJOUTÉE POUR NOTIFICATIONS CLIENT */}
+      <Route
+        path="/client/notifications"
+        element={
+          <RoleRoute role="client">
+            <NotificationsPage />
+          </RoleRoute>
+        }
+      />
+
     </Routes>
   );
 }
@@ -77,7 +91,7 @@ function HomeSection() {
 }
 
 function App() {
-  const location = useLocation(); // Hook pour récupérer le chemin actuel
+  const location = useLocation(); 
 
   // Vérifie si on est sur Login ou Inscription
   const showHome = location.pathname !== '/login' && location.pathname !== '/inscription';
@@ -104,7 +118,6 @@ function App() {
   );
 }
 
-/* Comme useLocation ne peut pas être utilisé directement dans App avec BrowserRouter autour, on encapsule App */
 export default function AppWrapper() {
   return (
     <BrowserRouter>
