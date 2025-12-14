@@ -10,8 +10,9 @@ export default function LivreurColis() {
   const [notifications, setNotifications] = useState([]);
   const [message, setMessage] = useState("");
 
-  // 🔄 Fetch des colis
+  // ================= FETCH COLIS =================
   const fetchColis = async () => {
+    if (!utilisateur) return;
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get("http://localhost:5000/api/colis/livreur", {
@@ -26,8 +27,8 @@ export default function LivreurColis() {
     }
   };
 
-  // 🔄 Fetch notifications
   const fetchNotifications = async () => {
+    if (!utilisateur) return;
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(`http://localhost:5000/api/notifications/${utilisateur.id}`, {
@@ -40,7 +41,6 @@ export default function LivreurColis() {
   };
 
   useEffect(() => {
-    if (!utilisateur) return;
     fetchColis();
     fetchNotifications();
     const interval = setInterval(() => {
@@ -50,7 +50,7 @@ export default function LivreurColis() {
     return () => clearInterval(interval);
   }, [utilisateur]);
 
-  // 🔹 Accepter un colis
+  // ================= ACTIONS =================
   const handleAccepter = async (c) => {
     try {
       const token = localStorage.getItem("token");
@@ -60,16 +60,13 @@ export default function LivreurColis() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setMessage(`Colis ${c.codeSuivi} accepté !`);
-
-      // ✅ Mise à jour instantanée de l'UI
       setColisDispo(prev => prev.filter(x => x._id !== c._id));
-      setMesColis(prev => [...prev, { ...c, livreurId: utilisateur.id }]);
+      setMesColis(prev => [...prev, { ...c, livreurId: utilisateur.id, statut: "Accepté par livreur" }]);
     } catch (err) {
       setMessage(err.response?.data?.message || "Erreur lors de l'acceptation");
     }
   };
 
-  // 🔹 Refuser un colis
   const handleRefuser = async (c) => {
     try {
       const token = localStorage.getItem("token");
@@ -79,15 +76,12 @@ export default function LivreurColis() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setMessage(`Colis ${c.codeSuivi} refusé`);
-
-      // ✅ Mise à jour instantanée de l'UI
       setColisDispo(prev => prev.filter(x => x._id !== c._id));
     } catch (err) {
       setMessage(err.response?.data?.message || "Erreur lors du refus");
     }
   };
 
-  // 🔹 Marquer notification comme lue
   const handleMarkRead = async (notifId) => {
     try {
       const token = localStorage.getItem("token");
@@ -100,129 +94,116 @@ export default function LivreurColis() {
     }
   };
 
-  // ============================================================
-  // 📍 AJOUT GPS — ENVOI AUTOMATIQUE AU MICROSERVICE
-  // ============================================================
-  useEffect(() => {
-    if (!utilisateur) return;
+  const markAllAsRead = () => {
+    notifications.forEach(n => {
+      if(!n.read) handleMarkRead(n._id);
+    });
+  };
 
-    const sendGPS = () => {
-      if (!navigator.geolocation) {
-        console.error("GPS non supporté");
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-
-          try {
-            await axios.post(
-              `http://localhost:5001/locations/livreur/${utilisateur.id}`,
-              { latitude, longitude }
-            );
-            console.log("📍 Position envoyée :", latitude, longitude);
-          } catch (error) {
-            console.error("Erreur envoi position:", error.message);
-          }
-        },
-        (error) => {
-          console.error("Erreur GPS:", error);
-        }
+  const handleLivrer = async (c) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.put(
+        `http://localhost:5000/api/colis/statut/${c.codeSuivi}`,
+        { nouveauStatut: "Livré" },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-    };
+      setMesColis(prev =>
+        prev.map(col => col._id === c._id ? { ...col, statut: "Livré" } : col)
+      );
+      setMessage(`Colis ${c.codeSuivi} livré !`);
+    } catch (err) {
+      console.error("Erreur livraison:", err.response?.data?.message || err.message);
+      setMessage(err.response?.data?.message || "Erreur lors de la livraison");
+    }
+  };
 
-    sendGPS();
-    const interval = setInterval(sendGPS, 5000);
+  const unreadCount = notifications.filter(n => !n.read).length;
 
-    return () => clearInterval(interval);
-  }, [utilisateur]);
-  // ============================================================
-
+  // ================= RENDER =================
   return (
-    <div className="page-container" style={{ padding: "20px" }}>
-      {/* ================= NOTIFICATIONS ================= */}
-      <div className="notifications-widget" style={{ marginBottom: "20px" }}>
-        <h2>🔔 Notifications <span>{notifications.filter(n => !n.read).length}</span></h2>
+    <div className="page-container" style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
+      
+      {/* ========================= MINI NOTIFICATIONS ========================= */}
+      <section style={{ flex: 1, minWidth: 300 }}>
+        <h2 className="text-glow">🔔 Notifications {unreadCount > 0 && `(${unreadCount})`}</h2>
         {notifications.length === 0 ? (
           <p>Aucune notification</p>
         ) : (
-          <div className="notifications-list">
-            {notifications.map((n) => (
-              <div
-                key={n._id}
-                className={`notification-card ${n.read ? "read" : "unread"}`}
-              >
-                <div>{n.message}</div>
-                <small>{new Date(n.createdAt).toLocaleString()}</small>
-                {!n.read && (
-                  <button onClick={() => handleMarkRead(n._id)}>
-                    Marquer comme lu
-                  </button>
+          <>
+            <button className="btn-neon" style={{ marginBottom: "10px" }} onClick={markAllAsRead}>
+              Tout marquer comme lu
+            </button>
+            <div style={{ maxHeight: "300px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "10px" }}>
+              {notifications.map((n) => (
+                <div
+                  key={n._id}
+                  className="neon-card"
+                  style={{ 
+                    background: n.read ? "rgba(17,24,39,0.6)" : "rgba(6,182,212,0.2)" 
+                  }}
+                >
+                  <p><strong>{n.type}</strong>: {n.message}</p>
+                  <small>{new Date(n.createdAt).toLocaleString()}</small>
+                  {!n.read && (
+                    <button className="btn-neon" onClick={() => handleMarkRead(n._id)} style={{ marginTop: "5px" }}>
+                      Marquer comme lu
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* ================= COLIS DISPONIBLES ================= */}
+      <section style={{ flex: 2 }}>
+        <h2 className="text-glow">📦 Colis disponibles</h2>
+        {message && <p className="message">{message}</p>}
+        {colisDispo.length === 0 ? (
+          <p>Aucun colis disponible pour le moment.</p>
+        ) : (
+          <div className="featured-grid">
+            {colisDispo.map(c => (
+              <div key={c._id} className="neon-card">
+                <p><strong>Code:</strong> {c.codeSuivi}</p>
+                <p><strong>Destinataire:</strong> {c.nomDestinataire}</p>
+                <p><strong>Adresse:</strong> {c.adresseDestinataire}</p>
+                <div className="card-buttons">
+                  <button className="btn-neon" onClick={() => handleAccepter(c)}>Accepter</button>
+                  <button className="btn-neon" onClick={() => handleRefuser(c)}>Refuser</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ================= MES COLIS ================= */}
+      <section style={{ flex: 2 }}>
+        <h2 className="text-glow">📦 Mes colis acceptés</h2>
+        {mesColis.length === 0 ? (
+          <p>Vous n'avez accepté aucun colis pour le moment.</p>
+        ) : (
+          <div className="featured-grid">
+            {mesColis.map(c => (
+              <div key={c._id} className="neon-card">
+                <p><strong>Code:</strong> {c.codeSuivi}</p>
+                <p><strong>Destinataire:</strong> {c.nomDestinataire}</p>
+                <p><strong>Adresse:</strong> {c.adresseDestinataire}</p>
+                <p><strong>Statut:</strong> {c.statut}</p>
+                {c.statut !== "Livré" && (
+                  <div className="card-buttons">
+                    <button className="btn-neon" onClick={() => handleLivrer(c)}>Livrer</button>
+                  </div>
                 )}
               </div>
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* ================= COLIS DISPONIBLES ================= */}
-      <h2>📦 Colis disponibles</h2>
-      {message && <p style={{ color: "green" }}>{message}</p>}
-      {colisDispo.length === 0 ? (
-        <p>Aucun colis disponible pour le moment.</p>
-      ) : (
-        <table className="mescolis-table">
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Destinataire</th>
-              <th>Adresse</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {colisDispo.map((c) => (
-              <tr key={c._id}>
-                <td>{c.codeSuivi}</td>
-                <td>{c.nomDestinataire}</td>
-                <td>{c.adresseDestinataire}</td>
-                <td>
-                  <button className="btn btn-view" onClick={() => handleAccepter(c)}>Accepter</button>
-                  <button className="btn btn-delete" onClick={() => handleRefuser(c)}>Refuser</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
-      {/* ================= MES COLIS ================= */}
-      <h2>📦 Mes colis acceptés</h2>
-      {mesColis.length === 0 ? (
-        <p>Vous n'avez accepté aucun colis pour le moment.</p>
-      ) : (
-        <table className="mescolis-table">
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Destinataire</th>
-              <th>Adresse</th>
-              <th>Statut</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mesColis.map((c) => (
-              <tr key={c._id}>
-                <td>{c.codeSuivi}</td>
-                <td>{c.nomDestinataire}</td>
-                <td>{c.adresseDestinataire}</td>
-                <td>✅ Accepté</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
     </div>
   );
 }

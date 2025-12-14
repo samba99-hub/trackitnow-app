@@ -7,6 +7,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const { notifySystem, getUserNotifications, markNotificationRead } = require('./services/notificationService'); // 🔔 Import notifications
+const adminRoutes = require('./routes/adminRoutes');
+
 
 const app = express();
 
@@ -15,6 +17,7 @@ app.use(helmet());
 app.use(cors());   
 app.use(morgan('dev')); 
 
+
 // 📦 Middleware JSON
 app.use(express.json());
 
@@ -22,6 +25,7 @@ app.use(express.json());
 connecterBD();
 
 // 🛣️ Routes principales
+app.use('/api/admin', adminRoutes);
 app.use('/api/utilisateurs', utilisateurRoutes);
 app.use('/api/colis', colisRoutes);
 

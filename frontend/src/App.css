@@ -1088,3 +1088,67 @@ footer a:hover {
   width: 100%;
   margin-top: 10px;
 }
+
+
+/* ---------------- Glow dynamique pour chiffres ---------------- */
+@keyframes glowColors {
+  0% { color: #06b6d4; text-shadow: 0 0 8px #06b6d4, 0 0 15px #a855f7; }
+  25% { color: #a855f7; text-shadow: 0 0 8px #a855f7, 0 0 15px #6366f1; }
+  50% { color: #6366f1; text-shadow: 0 0 8px #6366f1, 0 0 15px #06b6d4; }
+  75% { color: #22c55e; text-shadow: 0 0 8px #22c55e, 0 0 15px #16a34a; }
+  100% { color: #06b6d4; text-shadow: 0 0 8px #06b6d4, 0 0 15px #a855f7; }
+}
+
+.text-glow {
+  animation: glowColors 3s infinite alternate;
+}
+
+/* Carte néon */
+.neon-card {
+  background: rgba(17, 24, 39, 0.7); /* bg-gray-900 transparent */
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 0 8px #06b6d4, 0 0 16px #6366f1;
+}
+
+/* Texte glow */
+.text-glow {
+  color: #fff;
+  text-shadow: 0 0 4px #06b6d4, 0 0 8px #6366f1;
+}
+
+/* Boutons néon */
+.btn-neon {
+  background: linear-gradient(90deg, #06b6d4, #6366f1);
+  color: #fff;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 6px #06b6d4, 0 0 12px #6366f1;
+  transition: all 0.3s ease;
+}
+.btn-neon:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 12px #06b6d4, 0 0 24px #6366f1;
+}
+
+/* Inputs néon */
+.input-neon {
+  background: rgba(17,24,39,0.7);
+  color: #fff;
+  border: 1px solid #06b6d4;
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 0 6px #06b6d4 inset;
+  outline: none;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+.input-neon:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 12px #06b6d4, 0 0 24px #6366f1 inset;
+}
+
+

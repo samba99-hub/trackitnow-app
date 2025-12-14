@@ -4,6 +4,7 @@ import { AuthContext } from "../context/AuthContext";
 import { FaEye, FaEdit, FaTrash, FaBell } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import ChatbotWidget from "../components/ChatbotWidget";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -31,7 +32,6 @@ export default function ClientColis() {
   // ========================= FETCH COLIS + NOTIFICATIONS =========================
   useEffect(() => {
     if (!utilisateur?.id) return;
-
     const token = localStorage.getItem("token");
 
     const fetchColis = async () => {
@@ -130,7 +130,6 @@ export default function ClientColis() {
   // ========================= FETCH POSITION LIVREUR =========================
   useEffect(() => {
     if (!selectedColis?.livreurId) return;
-
     let interval;
 
     const fetchLivreurPos = async () => {
@@ -140,7 +139,7 @@ export default function ClientColis() {
         );
         const data = res.data;
         if (Array.isArray(data) && data.length > 0) {
-          setLivreurPos(data[data.length - 1]); // prendre la dernière position
+          setLivreurPos(data[data.length - 1]);
         }
       } catch (err) {
         console.error("Erreur récupération position livreur :", err.message);
@@ -149,117 +148,85 @@ export default function ClientColis() {
 
     fetchLivreurPos();
     interval = setInterval(fetchLivreurPos, 5000);
-
     return () => clearInterval(interval);
   }, [selectedColis]);
 
   // ========================= RENDER =========================
   return (
-    <div className="page-container" style={{ display: "flex", gap: "20px" }}>
-      {/* ========================= MES COLIS ========================= */}
-      <section className="mescolis-section" style={{ flex: 2 }}>
-        <div className="mescolis-container animate-fadeIn">
-          <h2>📦 Mes Colis</h2>
-          <div className="mescolis-search">
-            <input
-              type="text"
-              placeholder="Rechercher un colis..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          {message && <p className="message">{message}</p>}
+    <div className="page-container" style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
+      {/* ========================= MES COLIS EN CARDS ========================= */}
+      <section style={{ flex: 2 }}>
+        <h2 className="text-glow" style={{ marginBottom: "20px" }}>📦 Mes Colis</h2>
+        <div className="mescolis-search" style={{ marginBottom: "20px" }}>
+          <input
+            type="text"
+            placeholder="Rechercher un colis..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input-neon"
+          />
+          <ChatbotWidget />
+        </div>
+
+        {message && <p className="message">{message}</p>}
+
+        <div className="featured-grid">
           {filtered.length === 0 ? (
             <p className="no-results">Aucun colis trouvé.</p>
           ) : (
-            <table className="mescolis-table">
-              <thead>
-                <tr>
-                  <th>Code</th>
-                  <th>Destinataire</th>
-                  <th>Adresse</th>
-                  <th>Statut</th>
-                  <th>Date</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((c) => (
-                  <tr key={c._id}>
-                    <td>{c.codeSuivi}</td>
-                    <td>{c.nomDestinataire}</td>
-                    <td>{c.adresseDestinataire}</td>
-                    <td>{c.statut}</td>
-                    <td>{new Date(c.createdAt).toLocaleDateString()}</td>
-                    <td>
-                      <button className="btn btn-view" onClick={() => handleView(c)}>
-                        <FaEye /> Voir
-                      </button>
-                      <button className="btn btn-edit" onClick={() => handleEdit(c)}>
-                        <FaEdit /> Modifier
-                      </button>
-                      <button className="btn btn-delete" onClick={() => handleDelete(c)}>
-                        <FaTrash /> Supprimer
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            filtered.map((c) => (
+              <div key={c._id} className="neon-card">
+                <h3 className="text-glow">{c.codeSuivi}</h3>
+                <p><strong>Destinataire:</strong> {c.nomDestinataire}</p>
+                <p><strong>Adresse:</strong> {c.adresseDestinataire}</p>
+                <p><strong>Statut:</strong> {c.statut}</p>
+                <p><strong>Date:</strong> {new Date(c.createdAt).toLocaleDateString()}</p>
+
+                <div className="card-buttons" style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+                  <button className="btn-neon" onClick={() => handleView(c)}><FaEye /> Voir</button>
+                  <button className="btn-neon" onClick={() => handleEdit(c)}><FaEdit /> Modifier</button>
+                  <button className="btn-neon" onClick={() => handleDelete(c)}><FaTrash /> Supprimer</button>
+                </div>
+              </div>
+            ))
           )}
         </div>
       </section>
 
       {/* ========================= MINI NOTIFICATIONS ========================= */}
-      <section className="notifications-widget" style={{ flex: 1 }}>
-        <div className="notifications-container animate-fadeIn">
-          <h2>
-            <FaBell /> Notifications{" "}
-            {notificationsServiceDisponible && unreadCount > 0 && (
-              <span style={{ color: "red" }}>({unreadCount})</span>
-            )}
-          </h2>
-
-          {!notificationsServiceDisponible ? (
-            <p style={{ color: "orange" }}>Service de notifications indisponible</p>
-          ) : notifications.length === 0 ? (
-            <p>Service de notifications indisponible</p>
-          ) : (
-            <>
-              <button onClick={markAllAsRead} style={{ marginBottom: "10px" }}>
-                Tout marquer comme lu
-              </button>
-              <div style={{ maxHeight: "300px", overflowY: "auto" }}>
-                <ul>
-                  {notifications.map((n) => (
-                    <li
-                      key={n._id}
-                      style={{
-                        background: n.lu ? "#eee" : "#f9f9f9",
-                        margin: "5px 0",
-                        padding: "10px",
-                        borderRadius: "5px",
-                      }}
-                    >
-                      <strong>{n.type}</strong>: {n.message} <br />
-                      <small>{new Date(n.createdAt).toLocaleString()}</small> <br />
-                      {!n.lu && (
-                        <button onClick={() => markAsRead(n._id)}>Marquer comme lu</button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </>
-          )}
-        </div>
+      <section style={{ flex: 1 }}>
+        <h2 className="text-glow">🔔 Notifications {unreadCount > 0 && `(${unreadCount})`}</h2>
+        {!notificationsServiceDisponible ? (
+          <p style={{ color: "orange" }}>Service de notifications indisponible</p>
+        ) : notifications.length === 0 ? (
+          <p>Aucune notification</p>
+        ) : (
+          <>
+            <button className="btn-neon" style={{ marginBottom: "10px" }} onClick={markAllAsRead}>
+              Tout marquer comme lu
+            </button>
+            <div style={{ maxHeight: "300px", overflowY: "auto" }}>
+              {notifications.map((n) => (
+                <div
+                  key={n._id}
+                  className="neon-card"
+                  style={{ marginBottom: "10px", background: n.lu ? "rgba(17,24,39,0.6)" : "rgba(6,182,212,0.2)" }}
+                >
+                  <p><strong>{n.type}</strong>: {n.message}</p>
+                  <small>{new Date(n.createdAt).toLocaleString()}</small>
+                  {!n.lu && <button className="btn-neon" onClick={() => markAsRead(n._id)}>Marquer comme lu</button>}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       {/* ========================= MODAL LIVREUR ========================= */}
       {showModal && selectedColis && (
         <div className="overlay active">
-          <div className="colis-container" style={{ maxWidth: 500 }}>
-            <h3>Détails du colis</h3>
+          <div className="colis-container neon-card" style={{ maxWidth: 500 }}>
+            <h3 className="text-glow">Détails du colis</h3>
             <p><strong>Code :</strong> {selectedColis.codeSuivi}</p>
             <p><strong>Destinataire :</strong> {selectedColis.nomDestinataire}</p>
             <p><strong>Adresse :</strong> {selectedColis.adresseDestinataire}</p>
@@ -269,7 +236,7 @@ export default function ClientColis() {
 
             <h4>Position du livreur</h4>
             <div style={{ height: 300, marginTop: 10 }}>
-              {livreurPos && livreurPos.latitude && livreurPos.longitude ? (
+              {livreurPos?.latitude && livreurPos?.longitude ? (
                 <MapContainer
                   center={[livreurPos.latitude, livreurPos.longitude]}
                   zoom={13}
@@ -284,11 +251,11 @@ export default function ClientColis() {
                   </Marker>
                 </MapContainer>
               ) : (
-                <p>Chargement de la position du livreur...</p>
+                <p>Service géolocalisation indisponible</p>
               )}
             </div>
 
-            <button className="btn btn-primary" onClick={() => setShowModal(false)}>Fermer</button>
+            <button className="btn-neon" onClick={() => setShowModal(false)}>Fermer</button>
           </div>
         </div>
       )}

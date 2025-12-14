@@ -1,17 +1,17 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, AuthContext } from './context/AuthContext';
 import RoleRoute from './routes/RoleRoute';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import ChatbotWidget from './components/ChatbotWidget';
 import LoginPage from './pages/LoginPage';
 import InscriptionPage from './pages/InscriptionPage';
 import AdminDashboard from './pages/AdminDashboard';
 import ClientColis from './pages/ClientColis';
 import CreerColis from './pages/CreerColis';
 import LivreurColis from './pages/LivreurColis';
-
-import NotificationsPage from './pages/Notifications';   // ✅ AJOUT ICI
+import NotificationsPage from './pages/Notifications';
 
 import './App.css';
 
@@ -51,7 +51,6 @@ function AppRoutes() {
         }
       />
 
-      {/* ✅ ROUTE AJOUTÉE POUR NOTIFICATIONS CLIENT */}
       <Route
         path="/client/notifications"
         element={
@@ -60,12 +59,11 @@ function AppRoutes() {
           </RoleRoute>
         }
       />
-
     </Routes>
   );
 }
 
-/* SECTION HOME AVEC BOUTON CONDITIONNEL */
+/* SECTION HOME AVEC TEXTE D’ACCUEIL */
 function HomeSection() {
   const { utilisateur } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -91,14 +89,18 @@ function HomeSection() {
 }
 
 function App() {
-  const location = useLocation(); 
+  const location = useLocation();
+  const [showHome, setShowHome] = useState(location.pathname === '/');
 
-  // Vérifie si on est sur Login ou Inscription
-  const showHome = location.pathname !== '/login' && location.pathname !== '/inscription';
+  useEffect(() => {
+    if (location.pathname !== '/') {
+      setShowHome(false); // Masquer HomeSection si on navigue ailleurs
+    }
+  }, [location.pathname]);
 
   return (
     <AuthProvider>
-      {/* FOND FUTURISTE */}
+      {/* FOND */}
       <div className="bg-grid"></div>
       <div className="bg-glow top-right"></div>
       <div className="bg-glow bottom-left"></div>
@@ -106,11 +108,14 @@ function App() {
       {/* NAVBAR */}
       <Navbar />
 
-      {/* HOME : affiché uniquement si showHome est true */}
+      {/* HOME */}
       {showHome && <HomeSection />}
 
       {/* PAGES */}
       <AppRoutes />
+
+      {/* CHATBOT */}
+      <ChatbotWidget />
 
       {/* FOOTER */}
       <Footer />
